@@ -1,0 +1,36 @@
+hosts:
+  # Main Net
+  #- network_id: "Main_Net"
+  #  host: "relays-new.cardano-mainnet.iohk.io:3001"
+  #  network_magic: 764824073
+  # SPO iohk Main Net
+  #- network_id: "SPO_iohk_Main_Net"
+  #  host: "backbone.cardano-mainnet.iohk.io:3001"
+  #  network_magic: 764824073
+  # SPO emurgornd Main Net
+  #- network_id: "SPO_emurgornd_Main_Net"
+  #  host: "backbone.mainnet.emurgornd.com:3001"
+  #  network_magic: 764824073
+  # Pre-Production Test Net
+  #- network_id: "Pre_Production_Test_Net"
+  #  host: "preprod-node.world.dev.cardano.org:30000"
+  #  network_magic: 1
+  # Preview Test Net
+  #- network_id: "Preview_Test_Net"
+  #  host: "preview-node.world.dev.cardano.org:30002"
+  #  network_magic: 2
+  # Sanchonet Testnet
+  #- network_id: "Sanchonet_Test_Net"
+  #  host: "sanchonet-node.world.dev.cardano.org:30004"
+  #  network_magic: 4
+  # Local Dev Net
+  - network_id: "Local_Dev_Net"
+    host: "0.0.0.0:3001"
+    network_magic: 1
+supported_versions:
+  #- 3
+  - 7
+  - 8
+  - 9
+  - 10
+max_supported_version: 10

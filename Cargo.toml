@@ -1,0 +1,15 @@
+[package]
+name = "cardano_rust_node"
+version = "0.1.0"
+edition = "2021"
+description = "Rust implementation with P2P mini-protocols of Cardano"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ciborium = "0.2"
+figment = { version = "0.10", features = ["env", "yaml"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "test-util", "time"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
