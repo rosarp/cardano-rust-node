@@ -16,36 +16,23 @@ pub async fn negotiate<'a>(
     supported_versions: &Vec<i64>,
 ) -> Result<(Duration, Duration), String> {
     let start = Instant::now();
-    let negotiate_duration = connect(
-        node_config.read,
-        node_config.write,
-        supported_versions,
-        node_config.magic,
-        node_config.network_id,
-    )
-    .await;
-    Ok((negotiate_duration, start.elapsed()))
-}
 
-async fn connect(
-    read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>,
-    write: Mutex<Box<dyn AsyncWrite + Send + Unpin>>,
-    supported_versions: &Vec<i64>,
-    network_magic: u32,
-    network_id: &str,
-) -> Duration {
     let mut message = Vec::new();
     prepare_message(
         &mut message,
         StateMachine::StPropose,
         supported_versions,
-        network_magic,
-        network_id,
+        node_config.magic,
+        node_config.network_id,
     );
 
     let negotiate_start = Instant::now();
-    join!(receive(read, network_id), send(write, message, network_id));
-    negotiate_start.elapsed()
+    join!(
+        receive(node_config.read, node_config.network_id),
+        send(node_config.write, message, node_config.network_id)
+    );
+
+    Ok((negotiate_start.elapsed(), start.elapsed()))
 }
 
 fn prepare_message(
@@ -121,6 +108,7 @@ async fn receive(read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>, network_id
     }
 
     let response_message: Value = from_reader(&response_message[..]).unwrap();
+    debug!("response_message {}: {:?}", network_id, response_message);
     match Message::from_value(response_message) {
         Ok(response_message) => info!("response_message {}: {:?}", network_id, response_message),
         Err(error) => error!("Error message: {}", error),

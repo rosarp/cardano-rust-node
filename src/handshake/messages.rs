@@ -18,7 +18,7 @@ type NetworkMagic = u32;
 type InitiatorAndResponderDiffusionMode = bool;
 type VersionTable = Vec<(VersionNumber, Vec<NodeToNodeVersionData>)>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Message {
     MsgProposeVersions(Vec<ProposeVersion>),
@@ -27,7 +27,7 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn to_value(self) -> Result<Value, String> {
+    pub fn to_value(&self) -> Result<Value, String> {
         match self {
             Message::MsgProposeVersions(propose_versions) => {
                 let values = propose_versions.iter().map(|v| v.to_value()).collect();
@@ -38,7 +38,6 @@ impl Message {
     }
 
     pub fn from_value(array: Value) -> Result<Message, String> {
-        info!("from_value: {:?}", array);
         let array = array.into_array().unwrap();
         let index = i128::from(array.get(0).unwrap().as_integer().unwrap());
         match index {
@@ -65,6 +64,7 @@ impl Message {
                         }
                     };
                 Ok(Message::MsgAcceptVersion(vec![
+                    AcceptVersion::Index(1),
                     version_number_val,
                     node_to_node_version_data_val,
                 ]))
@@ -81,12 +81,12 @@ impl Message {
                     }
                 }
             }
-            _ => Err("Message: Do not expect any other index!".to_owned()),
+            _ => Err(format!("Message: Do not expect any other index {}!", index)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ProposeVersion {
     Index(Index),
     VersionTable(VersionTable),
@@ -138,7 +138,7 @@ impl ProposeVersion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AcceptVersion {
     Index(Index),
     VersionNumber(VersionNumber),
@@ -176,7 +176,7 @@ impl AcceptVersion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RefuseReason {
     RefuseReasonVersionMismatch(Vec<VersionNumber>),
     RefuseReasonHandshakeDecodeError(VersionNumber, RefuseReasonMessage),
@@ -225,7 +225,7 @@ impl RefuseReason {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum NodeToNodeVersionData {
     NetworkMagic(NetworkMagic),
     InitiatorAndResponderDiffusionMode(InitiatorAndResponderDiffusionMode),
@@ -258,16 +258,15 @@ impl NodeToNodeVersionData {
     }
 }
 
-/*
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 enum Agency {
     Client,
     Server,
 }
-*/
 
 // Handshake Mini-Protocol state machine goes through following states
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum StateMachine {
     StPropose,
@@ -311,6 +310,89 @@ impl<'a> NodeConfig<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[tokio::test]
-    async fn it_works() {}
+    async fn propose_versions() {
+        let message = Message::MsgProposeVersions(vec![
+            ProposeVersion::Index(0),
+            ProposeVersion::create_version_table(&vec![7, 8, 9, 10], 1),
+        ]);
+        assert!(format!("{:?}", message).eq("MsgProposeVersions([Index(0), VersionTable([(7, [NetworkMagic(1), InitiatorAndResponderDiffusionMode(false)]), (8, [NetworkMagic(1), InitiatorAndResponderDiffusionMode(false)]), (9, [NetworkMagic(1), InitiatorAndResponderDiffusionMode(false)]), (10, [NetworkMagic(1), InitiatorAndResponderDiffusionMode(false)])])])"));
+
+        let value = message.to_value().unwrap();
+        assert!(format!("{:?}", value).eq("Array([Integer(Integer(0)), Map([(Integer(Integer(7)), Array([Integer(Integer(1)), Bool(false)])), (Integer(Integer(8)), Array([Integer(Integer(1)), Bool(false)])), (Integer(Integer(9)), Array([Integer(Integer(1)), Bool(false)])), (Integer(Integer(10)), Array([Integer(Integer(1)), Bool(false)]))])])"));
+    }
+
+    #[tokio::test]
+    async fn accept_versions() {
+        let value = Value::Array(vec![
+            Value::from(1),
+            Value::from(10),
+            Value::Array(vec![Value::from(1), Value::Bool(false)]),
+        ]);
+        assert!(format!("{:?}", value).eq("Array([Integer(Integer(1)), Integer(Integer(10)), Array([Integer(Integer(1)), Bool(false)])])"));
+
+        let message = Message::from_value(value).unwrap();
+        assert!(format!("{:?}", message).eq("MsgAcceptVersion([Index(1), VersionNumber(10), NodeToNodeVersionData([NetworkMagic(1), InitiatorAndResponderDiffusionMode(false)])])"));
+    }
+
+    #[tokio::test]
+    async fn refuse_reason_version_mismatch() {
+        let value = Value::Array(vec![
+            Value::from(2),
+            Value::Array(vec![
+                Value::from(0),
+                Value::Array(vec![
+                    Value::from(7),
+                    Value::from(8),
+                    Value::from(9),
+                    Value::from(10),
+                ]),
+            ]),
+        ]);
+        assert!(format!("{:?}", value).eq("Array([Integer(Integer(2)), Array([Integer(Integer(0)), Array([Integer(Integer(7)), Integer(Integer(8)), Integer(Integer(9)), Integer(Integer(10))])])])"));
+
+        let message = Message::from_value(value).unwrap();
+        assert!(
+            format!("{:?}", message).eq("MsgRefuse(RefuseReasonVersionMismatch([7, 8, 9, 10]))")
+        );
+    }
+
+    #[tokio::test]
+    async fn refuse_reason_handshake_decode_error() {
+        let value = Value::Array(vec![
+            Value::from(2),
+            Value::Array(vec![
+                Value::from(1),
+                Value::from(11),
+                Value::Text("unknown encoding: TList [TInt 1,TBool False]".to_owned()),
+            ]),
+        ]);
+        assert!(format!("{:?}", value).eq("Array([Integer(Integer(2)), Array([Integer(Integer(1)), Integer(Integer(11)), Text(\"unknown encoding: TList [TInt 1,TBool False]\")])])"));
+
+        let message = Message::from_value(value).unwrap();
+        assert!(
+            format!("{:?}", message).eq("MsgRefuse(RefuseReasonHandshakeDecodeError(11, \"unknown encoding: TList [TInt 1,TBool False]\"))")
+        );
+    }
+
+    #[tokio::test]
+    async fn refuse_reason_refused() {
+        let value = Value::Array(vec![
+            Value::from(2),
+            Value::Array(vec![
+                Value::from(2),
+                Value::from(10),
+                Value::Text("unknown reason".to_owned()),
+            ]),
+        ]);
+        assert!(format!("{:?}", value).eq("Array([Integer(Integer(2)), Array([Integer(Integer(2)), Integer(Integer(10)), Text(\"unknown reason\")])])"));
+
+        let message = Message::from_value(value).unwrap();
+        println!("{:?}", message);
+        assert!(
+            format!("{:?}", message).eq("MsgRefuse(RefuseReasonRefused(10, \"unknown reason\"))")
+        );
+    }
 }

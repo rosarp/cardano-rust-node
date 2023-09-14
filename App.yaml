@@ -28,9 +28,12 @@ hosts:
     host: "0.0.0.0:3001"
     network_magic: 1
 supported_versions:
+  # RefuseReasonVersionMismatch scenario
   #- 3
+  # Success scenario
   - 7
   - 8
   - 9
   - 10
-max_supported_version: 10
+  # RefuseReasonHandshakeDecodeError scenario
+  #- 11

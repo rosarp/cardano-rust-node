@@ -9,7 +9,6 @@ use tracing_subscriber::fmt::format::FmtSpan;
 pub struct AppConfig {
     pub hosts: Vec<HostConfig>,
     pub supported_versions: Vec<i64>,
-    max_supported_version: u8,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
