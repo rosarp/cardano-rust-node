@@ -35,13 +35,13 @@ It will create db folder when below command is run. Also below command expects a
 
 - Run command below to run cardano-node
 
-cardano-node run \
-  --topology ./topology.json \
-  --database-path ./db \
-  --socket-path ./db/node.socket \
-  --host-addr 0.0.0.0 \
-  --port 3001 \
-  --config ./config.json
+        cardano-node run \
+          --topology ./topology.json \
+          --database-path ./db \
+          --socket-path ./db/node.socket \
+          --host-addr 0.0.0.0 \
+          --port 3001 \
+          --config ./config.json
 
 
 ## 4. App.yaml file description
