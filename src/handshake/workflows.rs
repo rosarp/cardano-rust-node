@@ -3,11 +3,12 @@ use ciborium::Value;
 use ciborium::{from_reader, into_writer};
 use core::panic;
 use std::sync::Arc;
+use std::vec;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     join,
     sync::Mutex,
-    time::{sleep, Duration, Instant},
+    time::{Duration, Instant},
 };
 use tracing::{debug, error, info, warn};
 
@@ -20,7 +21,7 @@ pub async fn negotiate<'a>(
     let mut message = Vec::new();
     prepare_message(
         &mut message,
-        StateMachine::StPropose,
+        StateMachine::Propose,
         supported_versions,
         node_config.magic,
         node_config.network_id,
@@ -43,8 +44,8 @@ fn prepare_message(
     network_id: &str,
 ) {
     match state {
-        StateMachine::StPropose => {
-            let propose_versions = Message::MsgProposeVersions(vec![
+        StateMachine::Propose => {
+            let propose_versions = Message::ProposeVersions(vec![
                 ProposeVersion::Index(0),
                 ProposeVersion::create_version_table(supported_versions, network_magic),
             ]);
@@ -56,8 +57,8 @@ fn prepare_message(
             debug!("propose_versions {}: {:?}", network_id, propose_versions);
             into_writer(&propose_versions, message).unwrap();
         }
-        StateMachine::StConfirm => {}
-        StateMachine::StDone => panic!("Not expecting Done status!"),
+        StateMachine::Confirm => {}
+        StateMachine::Done => panic!("Not expecting Done status!"),
     }
 }
 
@@ -67,47 +68,71 @@ async fn send(
     network_id: &str,
 ) {
     info!("Sending MsgProposeVersions: {}", network_id);
-    let mode = 0;
-    let mode_and_mini_protocol_id = if mode == 1 {
-        128 + MINI_PROTOCOL_ID_HANDSHAKE
-    } else {
-        MINI_PROTOCOL_ID_HANDSHAKE
-    };
     let mut write = write.lock().await;
     let transmission_time = Instant::now().elapsed().as_micros() as u32;
-    write.write_u32(transmission_time).await.unwrap();
-    write.write_u16(mode_and_mini_protocol_id).await.unwrap();
-    write.write_u16(message.len() as u16).await.unwrap();
-    write.write_all(&message).await.unwrap();
-
-    info!("Send Comlete: {}", network_id);
+    let capacity = 32 + 16 + 16 + message.len();
+    let mut write_buffer: Vec<u8> = Vec::with_capacity(capacity);
+    let transmission_time = transmission_time.to_be_bytes();
+    for v in transmission_time {
+        write_buffer.push(v);
+    }
+    let mode = MINI_PROTOCOL_ID_HANDSHAKE.to_be_bytes();
+    mode.into_iter().for_each(|m| write_buffer.push(m));
+    let message_len = (message.len() as u16).to_be_bytes();
+    message_len.into_iter().for_each(|m| write_buffer.push(m));
+    message.into_iter().for_each(|m| write_buffer.push(m));
+    match write.write_all(&write_buffer).await {
+        Ok(_) => info!("Successfully sent request to {}", network_id),
+        Err(error) => error!("Error sending request to server: {:?}", error),
+    }
 }
 
 async fn receive(read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>, network_id: &str) {
     info!("Reading response: {}", network_id);
     let mut read = read.lock().await;
-    let transmission_time = match read.read_u32().await {
-        Ok(time) => time,
+
+    let mut response_received: Vec<u8> = vec![];
+    let total_bytes_received = match read.read_to_end(&mut response_received).await {
+        Ok(count) => count,
         Err(error) => {
-            error!("Server returned error: {}", error);
+            warn!("Network Id: {}, Error: {:?}", network_id, error);
+            error!("Error in reading response from server");
             return;
         }
     };
-    info!("transmission_time {}: {:?}", network_id, transmission_time);
-    let protocol_id = read.read_u16().await.unwrap();
-    info!("protocol_id {}: {}", network_id, protocol_id);
-    let message_len = read.read_u16().await.unwrap();
+    info!(
+        "Read success {}: {} bytes",
+        network_id, total_bytes_received
+    );
 
-    let mut response_message = vec![0u8; message_len as usize];
-    match read.read_exact(&mut response_message).await {
-        Ok(result) => info!("Read success {}: {} bytes", network_id, result),
-        Err(error) => {
-            warn!("Network: {}, Error: {:?}", network_id, error);
-            sleep(Duration::from_secs(5)).await;
+    match response_received[0..32].try_into() {
+        Ok(bytes) => {
+            let val = u32::from_be_bytes(bytes);
+            info!("transmission_time: {}", val);
         }
+        Err(error) => error!(
+            "Error reading transmission_time for {}: {}",
+            network_id, error
+        ),
     }
 
-    let response_message: Value = from_reader(&response_message[..]).unwrap();
+    match response_received[32..48].try_into() {
+        Ok(bytes) => {
+            let val = u32::from_be_bytes(bytes);
+            info!("protocol_id: {}", val);
+        }
+        Err(error) => error!("Error reading protocol_id for {}: {}", network_id, error),
+    }
+
+    match response_received[48..64].try_into() {
+        Ok(bytes) => {
+            let val = u32::from_be_bytes(bytes);
+            info!("message_len: {}", val);
+        }
+        Err(error) => error!("Error reading message_len for {}: {}", network_id, error),
+    }
+
+    let response_message: Value = from_reader(&response_received[64..]).unwrap();
     debug!("response_message {}: {:?}", network_id, response_message);
     match Message::from_value(response_message) {
         Ok(response_message) => info!("response_message {}: {:?}", network_id, response_message),

@@ -9,7 +9,16 @@ use tracing::{error, info};
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() {
     enable_tracing();
-    let app_config: AppConfig = get_app_config();
+    let app_config: AppConfig = match get_app_config() {
+        Ok(config) => config,
+        Err(error) => {
+            error!(
+                "Application can not run without App.yaml configurations: {:?}",
+                error
+            );
+            panic!("Error loading application configurations!");
+        }
+    };
 
     let mut set = JoinSet::new();
 

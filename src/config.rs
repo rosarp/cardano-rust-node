@@ -30,7 +30,6 @@ pub fn enable_tracing() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 }
 
-pub fn get_app_config() -> AppConfig {
-    let figment = Figment::new().merge(Yaml::file("App.yaml"));
-    figment.extract().unwrap()
+pub fn get_app_config() -> Result<AppConfig, figment::Error> {
+    Figment::new().merge(Yaml::file("App.yaml")).extract()
 }
