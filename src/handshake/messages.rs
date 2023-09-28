@@ -60,15 +60,17 @@ impl Message {
                 let node_to_node_version_data = array
                     .get(2)
                     .ok_or("No value found at AcceptVersion index 2")?;
-                let version_number_val = match AcceptVersion::from_value(1, version_number) {
-                    Ok(vn) => vn,
-                    Err(error) => {
-                        error!("Failed to convert {:?}: {}", version_number, error);
-                        return Err(error);
-                    }
-                };
+
+                let version_number_val =
+                    match AcceptVersion::version_number_from_value(version_number) {
+                        Ok(vn) => vn,
+                        Err(error) => {
+                            error!("Failed to convert {:?}: {}", version_number, error);
+                            return Err(error);
+                        }
+                    };
                 let node_to_node_version_data_val =
-                    match AcceptVersion::from_value(2, node_to_node_version_data) {
+                    match AcceptVersion::nodes_data_from_value(node_to_node_version_data) {
                         Ok(nd) => nd,
                         Err(error) => {
                             error!(
@@ -161,37 +163,29 @@ pub enum AcceptVersion {
 }
 
 impl AcceptVersion {
-    fn from_value(index: usize, value: &Value) -> Result<AcceptVersion, String> {
-        match index {
-            0 => {
-                let index = value
-                    .as_integer()
-                    .ok_or("Could not convert index as integer")?;
-                Ok(AcceptVersion::Index(i128::from(index)))
-            }
-            1 => {
-                let version_number = value
-                    .as_integer()
-                    .ok_or("Could not convert version_number as integer")?;
-                Ok(AcceptVersion::VersionNumber(i128::from(version_number)))
-            }
-            2 => {
-                let array = value.as_array().ok_or("Could not convert to array")?;
-                let mut data: Vec<NodeToNodeVersionData> = vec![];
-                for dr in array {
-                    let dr_val = match NodeToNodeVersionData::from_value(dr.clone()) {
-                        Ok(val) => val,
-                        Err(error) => {
-                            error!("Error in converting value of {:?}: {}", dr, error);
-                            return Err(error);
-                        }
-                    };
-                    data.push(dr_val);
+    fn version_number_from_value(value: &Value) -> Result<AcceptVersion, String> {
+        let version_number = value
+            .as_integer()
+            .ok_or("Could not convert version_number as integer")?;
+        Ok(AcceptVersion::VersionNumber(VersionNumber::from(
+            version_number,
+        )))
+    }
+
+    fn nodes_data_from_value(value: &Value) -> Result<AcceptVersion, String> {
+        let array = value.as_array().ok_or("Could not convert to array")?;
+        let mut data: Vec<NodeToNodeVersionData> = vec![];
+        for dr in array {
+            let dr_val = match NodeToNodeVersionData::from_value(dr.clone()) {
+                Ok(val) => val,
+                Err(error) => {
+                    error!("Error in converting value of {:?}: {}", dr, error);
+                    return Err(error);
                 }
-                Ok(AcceptVersion::NodeToNodeVersionData(data))
-            }
-            _ => Err("AcceptVersion: Do not expect any other index!".to_owned()),
+            };
+            data.push(dr_val);
         }
+        Ok(AcceptVersion::NodeToNodeVersionData(data))
     }
 }
 
