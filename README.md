@@ -30,21 +30,23 @@
 
 - Open link given in Reference [5]. Check at the bottom of the page, section 'Assets'.
 - Download cardano-node-8.1.2-linux.tar.gz or your platform specific file from Assets section.
-- Open link given in Reference [4]. Download files named below, and store it under './cardano-rust-node/cardano-local folder'
+- Extract folder under local user's bin folder viz. ~/bin/cardano-node-8.1.2
+    - Which means cardano-node binary is available at ~/bin/cardano-node-8.1.2/cardano-node location
+- Open link given in Reference [4]. Download files named mentioned below, and store it under './cardano-rust-node/cardano-local folder' which is under current project's root folder.
 
-    - Node Config
-    - DB Sync Config
-    - Submit API Config
-    - Node Topology
-    - Byron Genesis
-    - Shelley Genesis
-    - Alonzo Genesis
-    - Conway Genesis
+    1. Node Config
+    2. DB Sync Config
+    3. Submit API Config
+    4. Node Topology
+    5. Byron Genesis
+    6. Shelley Genesis
+    7. Alonzo Genesis
+    8. Conway Genesis
 
 - Open command line and cd to ./cardano-rust-node/cardano-local folder.
 - Run command below to run cardano-node
 
-        cardano-node run \
+        ~/bin/cardano-node-8.1.2/cardano-node run \
           --topology ./topology.json \
           --database-path ./db \
           --socket-path ./db/node.socket \
