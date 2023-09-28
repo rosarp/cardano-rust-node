@@ -53,7 +53,7 @@ impl Message {
         let index = i128::from(index);
         match index {
             1 => {
-                info!("AcceptVersion");
+                info!("AcceptVersion::from_value");
                 let version_number = array
                     .get(1)
                     .ok_or("No value found at AcceptVersion index 1")?;
@@ -87,7 +87,7 @@ impl Message {
                 ]))
             }
             2 => {
-                info!("Refuse");
+                info!("Refuse::from_value");
                 let value = array.get(1).ok_or("No value found at Refuse index 1")?;
 
                 match RefuseReason::from_value(value) {
@@ -295,7 +295,6 @@ impl NodeToNodeVersionData {
                 .as_integer()
                 .ok_or("Could not convert network_magic to integer.")?
                 .into();
-            info!("value: {:?}", network_magic);
             Ok(NodeToNodeVersionData::NetworkMagic(network_magic as u32))
         } else if value.is_bool() {
             Ok(NodeToNodeVersionData::InitiatorAndResponderDiffusionMode(

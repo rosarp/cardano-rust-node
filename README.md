@@ -28,11 +28,20 @@
 
 ## 3. Running local cardano-node
 
-- Download cardano-node from link mentioned in Reference [5].
-- Download configs for pre-production-testnet from link mentioned in Reference [4]
-And store these configs in new folder for cardano-workspace, where you will run cardano-node.
-It will create db folder when below command is run. Also below command expects all configs to be in same folder.
+- Open link given in Reference [5]. Check at the bottom of the page, section 'Assets'.
+- Download cardano-node-8.1.2-linux.tar.gz or your platform specific file from Assets section.
+- Open link given in Reference [4]. Download files named below, and store it under './cardano-rust-node/cardano-local folder'
 
+    - Node Config
+    - DB Sync Config
+    - Submit API Config
+    - Node Topology
+    - Byron Genesis
+    - Shelley Genesis
+    - Alonzo Genesis
+    - Conway Genesis
+
+- Open command line and cd to ./cardano-rust-node/cardano-local folder.
 - Run command below to run cardano-node
 
         cardano-node run \
@@ -43,6 +52,7 @@ It will create db folder when below command is run. Also below command expects a
           --port 3001 \
           --config ./config.json
 
+- It will create db folder when above command is run. Also above command expects all configs to be in same folder.
 
 ## 4. App.yaml file description
 

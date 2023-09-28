@@ -91,9 +91,9 @@ async fn receive(read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>, network_id
     info!("Reading response: {}", network_id);
     let mut read = read.lock().await;
 
-    let mut response_received: Vec<u8> = vec![];
-    let total_bytes_received = match read.read_to_end(&mut response_received).await {
-        Ok(count) => count,
+    let mut response_received: Vec<u8> = Vec::new();
+    match read.read_buf(&mut response_received).await {
+        Ok(count) => info!("Bytes read: {}", count),
         Err(error) => {
             warn!("Network Id: {}, Error: {:?}", network_id, error);
             error!("Error in reading response from server");
@@ -101,11 +101,11 @@ async fn receive(read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>, network_id
         }
     };
     info!(
-        "Read success {}: {} bytes",
-        network_id, total_bytes_received
+        "Read success {} Response Received: {:?}",
+        network_id, response_received
     );
 
-    match response_received[0..32].try_into() {
+    match response_received[0..4].try_into() {
         Ok(bytes) => {
             let val = u32::from_be_bytes(bytes);
             info!("transmission_time: {}", val);
@@ -116,23 +116,23 @@ async fn receive(read: Arc<Mutex<Box<dyn AsyncRead + Send + Unpin>>>, network_id
         ),
     }
 
-    match response_received[32..48].try_into() {
+    match response_received[4..6].try_into() {
         Ok(bytes) => {
-            let val = u32::from_be_bytes(bytes);
+            let val = u16::from_be_bytes(bytes);
             info!("protocol_id: {}", val);
         }
         Err(error) => error!("Error reading protocol_id for {}: {}", network_id, error),
     }
 
-    match response_received[48..64].try_into() {
+    match response_received[6..8].try_into() {
         Ok(bytes) => {
-            let val = u32::from_be_bytes(bytes);
+            let val = u16::from_be_bytes(bytes);
             info!("message_len: {}", val);
         }
         Err(error) => error!("Error reading message_len for {}: {}", network_id, error),
-    }
+    };
 
-    let response_message: Value = from_reader(&response_received[64..]).unwrap();
+    let response_message: Value = from_reader(&response_received[8..]).unwrap();
     debug!("response_message {}: {:?}", network_id, response_message);
     match Message::from_value(response_message) {
         Ok(response_message) => info!("response_message {}: {:?}", network_id, response_message),
